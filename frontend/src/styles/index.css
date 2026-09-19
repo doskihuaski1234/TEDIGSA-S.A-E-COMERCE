@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  margin: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-tedigsa-orange hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+  }
+  .btn-secondary {
+    @apply bg-tedigsa-blue hover:bg-blue-900 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+  }
+  .btn-outline {
+    @apply border-2 border-tedigsa-blue text-tedigsa-blue hover:bg-tedigsa-blue hover:text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+  }
+  .input-field {
+    @apply w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-tedigsa-orange focus:border-transparent;
+  }
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden;
+  }
+}

@@ -1,0 +1,226 @@
+// TEDIGSA S.A. - E-Commerce Platform
+// Base de datos PostgreSQL - Modelo 3FN
+// Arquitectura: cada microservicio es dueño de su conjunto de tablas
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== USUARIOS / AUTENTICACIÓN ====================
+
+model Rol {
+  id_rol      Int       @id @default(autoincrement())
+  nombre      String    @db.VarChar(50)   // Cliente, Administrador, Encargado de Ventas/Bodega
+  descripcion String?   @db.VarChar(255)
+  usuarios    Usuario[]
+
+  @@map("rol")
+}
+
+model Usuario {
+  id_usuario     Int       @id @default(autoincrement())
+  nombre         String    @db.VarChar(100)
+  email          String    @unique @db.VarChar(150)
+  password_hash  String    @db.VarChar(255)
+  telefono       String?   @db.VarChar(20)
+  estado         String    @default("Activo") @db.VarChar(20) // Activo / Inactivo / Suspendido
+  fecha_registro DateTime  @default(now())
+  id_rol         Int
+  rol            Rol       @relation(fields: [id_rol], references: [id_rol])
+  direcciones    Direccion[]
+  carritos       CarritoCompras[]
+  ordenes        Orden[]
+  resenas        Resena[]
+
+  @@map("usuario")
+}
+
+model Direccion {
+  id_direccion  Int      @id @default(autoincrement())
+  id_usuario    Int
+  calle         String   @db.VarChar(150)
+  ciudad        String   @db.VarChar(80)
+  departamento  String   @db.VarChar(80)
+  codigo_postal  String?  @db.VarChar(10)
+  tipo          String   @db.VarChar(20) // Envio / Facturacion
+  usuario       Usuario  @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  ordenes       Orden[]
+
+  @@map("direccion")
+}
+
+// ==================== CATÁLOGO ====================
+
+model Categoria {
+  id_categoria       Int         @id @default(autoincrement())
+  nombre             String      @db.VarChar(80)
+  descripcion        String?     @db.VarChar(255)
+  id_categoria_padre Int?
+  categoria_padre    Categoria?  @relation("Subcategorias", fields: [id_categoria_padre], references: [id_categoria])
+  subcategorias      Categoria[] @relation("Subcategorias")
+  productos          Producto[]
+
+  @@map("categoria")
+}
+
+model Proveedor {
+  id_proveedor  Int        @id @default(autoincrement())
+  nombre        String     @db.VarChar(120)
+  nit           String?    @db.VarChar(15)
+  contacto      String?    @db.VarChar(100)
+  api_endpoint  String?    @db.VarChar(255)
+  estado        String     @default("Activo") @db.VarChar(20)
+  productos     Producto[]
+
+  @@map("proveedor")
+}
+
+model Producto {
+  id_producto   Int         @id @default(autoincrement())
+  nombre        String      @db.VarChar(150)
+  descripcion   String?     @db.Text
+  sku           String      @unique @db.VarChar(30)
+  tipo          String      @db.VarChar(20) // Producto fisico / Servicio de instalacion
+  precio        Decimal     @db.Decimal(10, 2)
+  imagen_url    String?     @db.VarChar(255)
+  estado        String      @default("Publicado") @db.VarChar(20) // Publicado / Agotado / Descontinuado
+  id_categoria  Int
+  id_proveedor  Int?
+  categoria     Categoria   @relation(fields: [id_categoria], references: [id_categoria])
+  proveedor     Proveedor?  @relation(fields: [id_proveedor], references: [id_proveedor])
+  inventario    Inventario?
+  carritoItems  CarritoItem[]
+  detalleOrdenes DetalleOrden[]
+  resenas       Resena[]
+
+  @@map("producto")
+}
+
+model Inventario {
+  id_inventario        Int      @id @default(autoincrement())
+  id_producto          Int      @unique
+  cantidad_disponible  Int      @default(0)
+  cantidad_reservada   Int      @default(0)
+  ultima_actualizacion DateTime @default(now()) @updatedAt
+  producto             Producto @relation(fields: [id_producto], references: [id_producto], onDelete: Cascade)
+
+  @@map("inventario")
+}
+
+// ==================== CARRITO ====================
+
+model CarritoCompras {
+  id_carrito     Int           @id @default(autoincrement())
+  id_usuario     Int
+  fecha_creacion DateTime      @default(now())
+  estado         String        @default("Activo") @db.VarChar(20) // Activo / Convertido en orden / Abandonado
+  usuario        Usuario       @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
+  items          CarritoItem[]
+
+  @@map("carrito_compras")
+}
+
+model CarritoItem {
+  id_carrito_item Int            @id @default(autoincrement())
+  id_carrito      Int
+  id_producto     Int
+  cantidad        Int            @default(1)
+  carrito         CarritoCompras @relation(fields: [id_carrito], references: [id_carrito], onDelete: Cascade)
+  producto        Producto       @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("carrito_item")
+}
+
+// ==================== ÓRDENES / PAGOS / FEL ====================
+
+model Cupon {
+  id_cupon     Int      @id @default(autoincrement())
+  codigo       String   @unique @db.VarChar(30)
+  tipo         String   @db.VarChar(20) // Porcentaje / Monto fijo
+  valor        Decimal  @db.Decimal(10, 2)
+  fecha_inicio DateTime @db.Date
+  fecha_fin    DateTime @db.Date
+  estado       String   @default("Activo") @db.VarChar(20) // Activo / Vencido / Agotado
+  ordenes      Orden[]
+
+  @@map("cupon")
+}
+
+model Orden {
+  id_orden     Int            @id @default(autoincrement())
+  id_usuario   Int
+  id_direccion Int
+  id_cupon     Int?
+  fecha        DateTime       @default(now())
+  estado       String         @default("Pendiente") @db.VarChar(30) // Pendiente / Pagada / En preparacion / Enviada / Entregada / Cancelada
+  subtotal     Decimal        @db.Decimal(10, 2)
+  impuestos    Decimal        @db.Decimal(10, 2)
+  total        Decimal        @db.Decimal(10, 2)
+  usuario      Usuario        @relation(fields: [id_usuario], references: [id_usuario])
+  direccion    Direccion      @relation(fields: [id_direccion], references: [id_direccion])
+  cupon        Cupon?         @relation(fields: [id_cupon], references: [id_cupon])
+  detalles     DetalleOrden[]
+  pago         Pago?
+  factura      FacturaFEL?
+
+  @@map("orden")
+}
+
+model DetalleOrden {
+  id_detalle      Int     @id @default(autoincrement())
+  id_orden        Int
+  id_producto     Int
+  cantidad        Int
+  precio_unitario Decimal @db.Decimal(10, 2)
+  subtotal        Decimal @db.Decimal(10, 2)
+  orden           Orden   @relation(fields: [id_orden], references: [id_orden], onDelete: Cascade)
+  producto        Producto @relation(fields: [id_producto], references: [id_producto])
+
+  @@map("detalle_orden")
+}
+
+model Pago {
+  id_pago            Int      @id @default(autoincrement())
+  id_orden           Int      @unique
+  metodo_pago        String   @db.VarChar(30)
+  monto              Decimal  @db.Decimal(10, 2)
+  estado             String   @default("Pendiente") @db.VarChar(20) // Aprobado / Rechazado / Pendiente / Reembolsado
+  fecha              DateTime @default(now())
+  referencia_pasarela String? @db.VarChar(100)
+  orden              Orden    @relation(fields: [id_orden], references: [id_orden], onDelete: Cascade)
+
+  @@map("pago")
+}
+
+model FacturaFEL {
+  id_factura    Int      @id @default(autoincrement())
+  id_orden      Int      @unique
+  numero_dte    String?  @db.VarChar(40)
+  uuid_sat      String?  @db.VarChar(60)
+  fecha_emision DateTime @default(now())
+  estado        String   @default("Pendiente") @db.VarChar(20) // Certificada / Anulada / Pendiente
+  xml_url       String?  @db.VarChar(255)
+  orden         Orden    @relation(fields: [id_orden], references: [id_orden], onDelete: Cascade)
+
+  @@map("factura_fel")
+}
+
+// ==================== RESEÑAS ====================
+
+model Resena {
+  id_resena    Int      @id @default(autoincrement())
+  id_producto  Int
+  id_usuario   Int
+  calificacion Int      // 1-5
+  comentario   String?  @db.Text
+  fecha        DateTime @default(now())
+  producto     Producto @relation(fields: [id_producto], references: [id_producto], onDelete: Cascade)
+  usuario      Usuario  @relation(fields: [id_usuario], references: [id_usuario])
+
+  @@map("resena")
+}
