@@ -36,7 +36,7 @@ export default function Home() {
             </p>
             <div className="flex flex-wrap gap-3">
               <Link to="/catalogo" className="btn-primary">Ver catálogo</Link>
-              <a href="https://wa.me/50212345678" target="_blank" rel="noreferrer" className="btn-outline border-white text-white hover:bg-white hover:text-tedigsa-blue">
+              <a href="https://wa.me/50230401481" target="_blank" rel="noreferrer" className="btn-outline border-white text-white hover:bg-white hover:text-tedigsa-blue">
                 WhatsApp
               </a>
             </div>

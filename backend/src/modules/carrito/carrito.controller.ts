@@ -2,192 +2,463 @@ import { Response } from 'express';
 import prisma from '../../config/prisma';
 import { AuthRequest } from '../../common/middleware/auth.middleware';
 
-export const getCarrito = async (req: AuthRequest, res: Response) => {
-  try {
-    let carrito = await prisma.carritoCompras.findFirst({
-      where: { id_usuario: req.user!.id_usuario, estado: 'Activo' },
-      include: {
-        items: {
-          include: {
-            producto: {
-              include: {
-                inventario: { select: { cantidad_disponible: true } },
-              },
+const carritoInclude = {
+  items: {
+    include: {
+      producto: {
+        include: {
+          inventario: {
+            select: {
+              cantidad_disponible: true,
+              cantidad_reservada: true,
             },
           },
         },
       },
-    });
+    },
+  },
+} as const;
 
-    if (!carrito) {
-      carrito = await prisma.carritoCompras.create({
-        data: { id_usuario: req.user!.id_usuario },
-        include: { items: { include: { producto: true } } },
+export const getCarrito = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const id_usuario = req.user?.id_usuario;
+
+    if (!id_usuario) {
+      return res.status(401).json({
+        error: 'Usuario no autenticado',
       });
     }
 
-    const subtotal = carrito.items.reduce(
-      (acc, item) => acc + Number(item.producto.precio) * item.cantidad,
-      0
-    );
+    const carrito = await obtenerOCrearCarrito(id_usuario);
 
-    res.json({ ...carrito, subtotal });
+    return res.status(200).json(
+      construirRespuestaCarrito(carrito)
+    );
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener carrito' });
+    console.error('Error al obtener carrito: - carrito.controller.ts:41', error);
+
+    return res.status(500).json({
+      error: 'Error al obtener carrito',
+    });
   }
 };
 
-export const addItem = async (req: AuthRequest, res: Response) => {
+export const addItem = async (
+  req: AuthRequest,
+  res: Response
+) => {
   try {
-    const { id_producto, cantidad = 1 } = req.body;
+    const id_usuario = req.user?.id_usuario;
+
+    if (!id_usuario) {
+      return res.status(401).json({
+        error: 'Usuario no autenticado',
+      });
+    }
+
+    const id_producto = Number(req.body.id_producto);
+    const cantidad = Number(req.body.cantidad ?? 1);
+
+    if (
+      !Number.isInteger(id_producto) ||
+      id_producto <= 0
+    ) {
+      return res.status(400).json({
+        error: 'El id_producto debe ser válido',
+      });
+    }
+
+    if (
+      !Number.isInteger(cantidad) ||
+      cantidad <= 0
+    ) {
+      return res.status(400).json({
+        error: 'La cantidad debe ser un entero mayor que 0',
+      });
+    }
 
     const producto = await prisma.producto.findUnique({
-      where: { id_producto },
-      include: { inventario: true },
+      where: {
+        id_producto,
+      },
+      include: {
+        inventario: true,
+      },
     });
 
-    if (!producto || producto.estado !== 'Publicado') {
-      return res.status(404).json({ error: 'Producto no disponible' });
-    }
-
-    if (producto.inventario && producto.inventario.cantidad_disponible < cantidad) {
-      return res.status(400).json({ error: 'Stock insuficiente' });
-    }
-
-    let carrito = await prisma.carritoCompras.findFirst({
-      where: { id_usuario: req.user!.id_usuario, estado: 'Activo' },
-    });
-
-    if (!carrito) {
-      carrito = await prisma.carritoCompras.create({
-        data: { id_usuario: req.user!.id_usuario },
+    if (!producto) {
+      return res.status(404).json({
+        error: 'Producto no encontrado',
       });
     }
 
-    const existing = await prisma.carritoItem.findFirst({
-      where: { id_carrito: carrito.id_carrito, id_producto },
-    });
-
-    if (existing) {
-      await prisma.carritoItem.update({
-        where: { id_carrito_item: existing.id_carrito_item },
-        data: { cantidad: existing.cantidad + cantidad },
-      });
-    } else {
-      await prisma.carritoItem.create({
-        data: {
-          id_carrito: carrito.id_carrito,
-          id_producto,
-          cantidad,
-        },
+    if (producto.estado !== 'Publicado') {
+      return res.status(400).json({
+        error: 'El producto no está disponible',
       });
     }
 
-    // Reservar stock
+    const carrito = await obtenerOCrearCarrito(id_usuario);
+
+    const itemExistente = await prisma.carritoItem.findFirst({
+      where: {
+        id_carrito: carrito.id_carrito,
+        id_producto,
+      },
+    });
+
     if (producto.inventario) {
-      await prisma.inventario.update({
-        where: { id_producto },
-        data: {
-          cantidad_reservada: { increment: cantidad },
-        },
-      });
-    }
+      const stockDisponible =
+        producto.inventario.cantidad_disponible -
+        producto.inventario.cantidad_reservada;
 
-    const updated = await getCarritoData(req.user!.id_usuario);
-    res.json(updated);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al agregar al carrito' });
-  }
-};
-
-export const updateItem = async (req: AuthRequest, res: Response) => {
-  try {
-    const id_carrito_item = parseInt(req.params.id);
-    const { cantidad } = req.body;
-
-    const item = await prisma.carritoItem.findUnique({
-      where: { id_carrito_item },
-      include: { carrito: true, producto: { include: { inventario: true } } },
-    });
-
-    if (!item || item.carrito.id_usuario !== req.user!.id_usuario) {
-      return res.status(404).json({ error: 'Ítem no encontrado' });
-    }
-
-    if (cantidad <= 0) {
-      await prisma.carritoItem.delete({ where: { id_carrito_item } });
-    } else {
-      const diff = cantidad - item.cantidad;
-      await prisma.carritoItem.update({
-        where: { id_carrito_item },
-        data: { cantidad },
-      });
-
-      if (item.producto.inventario && diff !== 0) {
-        await prisma.inventario.update({
-          where: { id_producto: item.id_producto },
-          data: { cantidad_reservada: { increment: diff } },
+      if (cantidad > stockDisponible) {
+        return res.status(400).json({
+          error: 'Stock insuficiente',
+          stock_disponible: stockDisponible,
+          cantidad_solicitada: cantidad,
         });
       }
     }
 
-    const updated = await getCarritoData(req.user!.id_usuario);
-    res.json(updated);
+    await prisma.$transaction(async (tx) => {
+      if (itemExistente) {
+        await tx.carritoItem.update({
+          where: {
+            id_carrito_item: itemExistente.id_carrito_item,
+          },
+          data: {
+            cantidad: itemExistente.cantidad + cantidad,
+          },
+        });
+      } else {
+        await tx.carritoItem.create({
+          data: {
+            id_carrito: carrito.id_carrito,
+            id_producto,
+            cantidad,
+          },
+        });
+      }
+
+      if (producto.inventario) {
+        await tx.inventario.update({
+          where: {
+            id_producto,
+          },
+          data: {
+            cantidad_reservada: {
+              increment: cantidad,
+            },
+          },
+        });
+      }
+    });
+
+    const carritoActualizado =
+      await obtenerOCrearCarrito(id_usuario);
+
+    return res.status(200).json(
+      construirRespuestaCarrito(carritoActualizado)
+    );
   } catch (error) {
-    res.status(500).json({ error: 'Error al actualizar ítem' });
+    console.error('Error al agregar producto: - carrito.controller.ts:168', error);
+
+    return res.status(500).json({
+      error: 'Error al agregar producto al carrito',
+    });
   }
 };
 
-export const removeItem = async (req: AuthRequest, res: Response) => {
+export const updateItem = async (
+  req: AuthRequest,
+  res: Response
+) => {
   try {
-    const id_carrito_item = parseInt(req.params.id);
+    const id_usuario = req.user?.id_usuario;
 
-    const item = await prisma.carritoItem.findUnique({
-      where: { id_carrito_item },
-      include: { carrito: true },
-    });
-
-    if (!item || item.carrito.id_usuario !== req.user!.id_usuario) {
-      return res.status(404).json({ error: 'Ítem no encontrado' });
+    if (!id_usuario) {
+      return res.status(401).json({
+        error: 'Usuario no autenticado',
+      });
     }
 
-    await prisma.carritoItem.delete({ where: { id_carrito_item } });
+    const id_carrito_item = Number(req.params.id);
+    const cantidad = Number(req.body.cantidad);
 
-    // Liberar reserva
-    await prisma.inventario.update({
-      where: { id_producto: item.id_producto },
-      data: { cantidad_reservada: { decrement: item.cantidad } },
-    });
+    if (
+      !Number.isInteger(id_carrito_item) ||
+      id_carrito_item <= 0
+    ) {
+      return res.status(400).json({
+        error: 'ID de carrito inválido',
+      });
+    }
 
-    const updated = await getCarritoData(req.user!.id_usuario);
-    res.json(updated);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al eliminar ítem' });
-  }
-};
+    if (
+      !Number.isInteger(cantidad) ||
+      cantidad < 0
+    ) {
+      return res.status(400).json({
+        error: 'La cantidad debe ser un entero mayor o igual a 0',
+      });
+    }
 
-async function getCarritoData(id_usuario: number) {
-  const carrito = await prisma.carritoCompras.findFirst({
-    where: { id_usuario, estado: 'Activo' },
-    include: {
-      items: {
-        include: {
-          producto: {
-            include: { inventario: { select: { cantidad_disponible: true } } },
+    const item = await prisma.carritoItem.findUnique({
+      where: {
+        id_carrito_item,
+      },
+      include: {
+        carrito: true,
+        producto: {
+          include: {
+            inventario: true,
           },
         },
       },
+    });
+
+    if (
+      !item ||
+      item.carrito.id_usuario !== id_usuario
+    ) {
+      return res.status(404).json({
+        error: 'Ítem no encontrado',
+      });
+    }
+
+    if (cantidad === 0) {
+      await prisma.$transaction(async (tx) => {
+        await tx.carritoItem.delete({
+          where: {
+            id_carrito_item,
+          },
+        });
+
+        if (item.producto.inventario) {
+          await tx.inventario.update({
+            where: {
+              id_producto: item.id_producto,
+            },
+            data: {
+              cantidad_reservada: {
+                decrement: item.cantidad,
+              },
+            },
+          });
+        }
+      });
+
+      const carritoActualizado =
+        await obtenerOCrearCarrito(id_usuario);
+
+      return res.status(200).json(
+        construirRespuestaCarrito(carritoActualizado)
+      );
+    }
+
+    const diferencia = cantidad - item.cantidad;
+
+    if (
+      diferencia > 0 &&
+      item.producto.inventario
+    ) {
+      const stockDisponible =
+        item.producto.inventario.cantidad_disponible -
+        item.producto.inventario.cantidad_reservada;
+
+      if (diferencia > stockDisponible) {
+        return res.status(400).json({
+          error: 'Stock insuficiente',
+          stock_disponible: stockDisponible,
+          cantidad_adicional: diferencia,
+        });
+      }
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.carritoItem.update({
+        where: {
+          id_carrito_item,
+        },
+        data: {
+          cantidad,
+        },
+      });
+
+      if (
+        item.producto.inventario &&
+        diferencia !== 0
+      ) {
+        await tx.inventario.update({
+          where: {
+            id_producto: item.id_producto,
+          },
+          data: {
+            cantidad_reservada: {
+              increment: diferencia,
+            },
+          },
+        });
+      }
+    });
+
+    const carritoActualizado =
+      await obtenerOCrearCarrito(id_usuario);
+
+    return res.status(200).json(
+      construirRespuestaCarrito(carritoActualizado)
+    );
+  } catch (error) {
+    console.error('Error al actualizar ítem: - carrito.controller.ts:316', error);
+
+    return res.status(500).json({
+      error: 'Error al actualizar ítem',
+    });
+  }
+};
+
+export const removeItem = async (
+  req: AuthRequest,
+  res: Response
+) => {
+  try {
+    const id_usuario = req.user?.id_usuario;
+
+    if (!id_usuario) {
+      return res.status(401).json({
+        error: 'Usuario no autenticado',
+      });
+    }
+
+    const id_carrito_item = Number(req.params.id);
+
+    if (
+      !Number.isInteger(id_carrito_item) ||
+      id_carrito_item <= 0
+    ) {
+      return res.status(400).json({
+        error: 'ID de carrito inválido',
+      });
+    }
+
+    const item = await prisma.carritoItem.findUnique({
+      where: {
+        id_carrito_item,
+      },
+      include: {
+        carrito: true,
+        producto: {
+          include: {
+            inventario: true,
+          },
+        },
+      },
+    });
+
+    if (
+      !item ||
+      item.carrito.id_usuario !== id_usuario
+    ) {
+      return res.status(404).json({
+        error: 'Ítem no encontrado',
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.carritoItem.delete({
+        where: {
+          id_carrito_item,
+        },
+      });
+
+      if (item.producto.inventario) {
+        await tx.inventario.update({
+          where: {
+            id_producto: item.id_producto,
+          },
+          data: {
+            cantidad_reservada: {
+              decrement: item.cantidad,
+            },
+          },
+        });
+      }
+    });
+
+    const carritoActualizado =
+      await obtenerOCrearCarrito(id_usuario);
+
+    return res.status(200).json(
+      construirRespuestaCarrito(carritoActualizado)
+    );
+  } catch (error) {
+    console.error('Error al eliminar ítem: - carrito.controller.ts:399', error);
+
+    return res.status(500).json({
+      error: 'Error al eliminar ítem',
+    });
+  }
+};
+
+async function obtenerOCrearCarrito(
+  id_usuario: number
+) {
+  let carrito = await prisma.carritoCompras.findFirst({
+    where: {
+      id_usuario,
+      estado: 'Activo',
     },
+    include: carritoInclude,
   });
 
-  if (!carrito) return null;
+  if (!carrito) {
+    carrito = await prisma.carritoCompras.create({
+      data: {
+        id_usuario,
+        estado: 'Activo',
+      },
+      include: carritoInclude,
+    });
+  }
 
+  return carrito;
+}
+
+function construirRespuestaCarrito(
+  carrito: any
+) {
   const subtotal = carrito.items.reduce(
-    (acc, item) => acc + Number(item.producto.precio) * item.cantidad,
+    (
+      acumulado: number,
+      item: any
+    ) => {
+      return (
+        acumulado +
+        Number(item.producto.precio) *
+          item.cantidad
+      );
+    },
     0
   );
 
-  return { ...carrito, subtotal };
+  const total_items = carrito.items.reduce(
+    (
+      acumulado: number,
+      item: any
+    ) => {
+      return acumulado + item.cantidad;
+    },
+    0
+  );
+
+  return {
+    ...carrito,
+    subtotal,
+    total_items,
+    total_productos: carrito.items.length,
+  };
 }

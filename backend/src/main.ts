@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
 import authRoutes from './modules/auth/auth.routes';
 import catalogoRoutes from './modules/catalogo/catalogo.routes';
 import carritoRoutes from './modules/carrito/carrito.routes';
@@ -11,7 +12,16 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'], credentials: true }));
+app.use(
+  cors({
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+    ],
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 
 // Health check
@@ -24,7 +34,7 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Rutas (simulando microservicios detrás de un API Gateway)
+// Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/catalogo', catalogoRoutes);
 app.use('/api/carrito', carritoRoutes);
@@ -32,22 +42,33 @@ app.use('/api/ordenes', ordenesRoutes);
 
 // 404
 app.use((_req, res) => {
-  res.status(404).json({ error: 'Ruta no encontrada' });
+  res.status(404).json({
+    error: 'Ruta no encontrada',
+  });
 });
 
 // Error handler
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: 'Error interno del servidor' });
-});
+app.use(
+  (
+    err: any,
+    _req: express.Request,
+    res: express.Response,
+    _next: express.NextFunction
+  ) => {
+    console.error(err);
 
+    res.status(500).json({
+      error: 'Error interno del servidor',
+    });
+  }
+);
+
+// Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`
-  ╔══════════════════════════════════════════════╗
-  ║   TEDIGSA S.A. — E-Commerce API              ║
-  ║   Puerto: ${PORT}                              ║
-  ║   Entorno: ${process.env.NODE_ENV || 'development'}                   ║
-  ║   Versión: Alpha                             ║
-  ╚══════════════════════════════════════════════╝
-  `);
+  console.log('======================================== - main.ts:68');
+  console.log('TEDIGSA S.A.  ECommerce API - main.ts:69');
+  console.log(`Puerto: ${PORT} - main.ts:70`);
+  console.log(`Entorno: ${process.env.NODE_ENV || 'development'} - main.ts:71`);
+  console.log('Version: Alpha - main.ts:72');
+  console.log('======================================== - main.ts:73');
 });

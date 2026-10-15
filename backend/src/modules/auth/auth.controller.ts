@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+
 import prisma from '../../config/prisma';
 import { AuthRequest } from '../../common/middleware/auth.middleware';
 
@@ -9,18 +10,30 @@ export const register = async (req: Request, res: Response) => {
     const { nombre, email, password, telefono } = req.body;
 
     if (!nombre || !email || !password) {
-      return res.status(400).json({ error: 'Nombre, email y contraseña son requeridos' });
+      return res.status(400).json({
+        error: 'Nombre, email y contraseña son requeridos',
+      });
     }
 
-    const exists = await prisma.usuario.findUnique({ where: { email } });
+    const exists = await prisma.usuario.findUnique({
+      where: { email },
+    });
+
     if (exists) {
-      return res.status(409).json({ error: 'El correo ya está registrado' });
+      return res.status(409).json({
+        error: 'El correo ya está registrado',
+      });
     }
 
-    // Rol Cliente por defecto (id_rol = 1 asumido, se crea en seed)
-    const rolCliente = await prisma.rol.findFirst({ where: { nombre: 'Cliente' } });
+    // Rol Cliente por defecto
+    const rolCliente = await prisma.rol.findFirst({
+      where: { nombre: 'Cliente' },
+    });
+
     if (!rolCliente) {
-      return res.status(500).json({ error: 'Rol Cliente no configurado. Ejecute el seed.' });
+      return res.status(500).json({
+        error: 'Rol Cliente no configurado. Ejecute el seed.',
+      });
     }
 
     const password_hash = await bcrypt.hash(password, 12);
@@ -40,9 +53,17 @@ export const register = async (req: Request, res: Response) => {
         telefono: true,
         estado: true,
         fecha_registro: true,
-        rol: { select: { nombre: true } },
+        rol: {
+          select: {
+            nombre: true,
+          },
+        },
       },
     });
+
+    const expiresIn = (
+      process.env.JWT_EXPIRES_IN || '7d'
+    ) as jwt.SignOptions['expiresIn'];
 
     const token = jwt.sign(
       {
@@ -52,13 +73,21 @@ export const register = async (req: Request, res: Response) => {
         rol: 'Cliente',
       },
       process.env.JWT_SECRET || 'secret',
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      {
+        expiresIn,
+      }
     );
 
-    res.status(201).json({ usuario, token });
+    res.status(201).json({
+      usuario,
+      token,
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al registrar usuario' });
+
+    res.status(500).json({
+      error: 'Error al registrar usuario',
+    });
   }
 };
 
@@ -67,22 +96,38 @@ export const login = async (req: Request, res: Response) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email y contraseña son requeridos' });
+      return res.status(400).json({
+        error: 'Email y contraseña son requeridos',
+      });
     }
 
     const usuario = await prisma.usuario.findUnique({
       where: { email },
-      include: { rol: true },
+      include: {
+        rol: true,
+      },
     });
 
     if (!usuario || usuario.estado !== 'Activo') {
-      return res.status(401).json({ error: 'Credenciales inválidas o cuenta inactiva' });
+      return res.status(401).json({
+        error: 'Credenciales inválidas o cuenta inactiva',
+      });
     }
 
-    const valid = await bcrypt.compare(password, usuario.password_hash);
+    const valid = await bcrypt.compare(
+      password,
+      usuario.password_hash
+    );
+
     if (!valid) {
-      return res.status(401).json({ error: 'Credenciales inválidas' });
+      return res.status(401).json({
+        error: 'Credenciales inválidas',
+      });
     }
+
+    const expiresIn = (
+      process.env.JWT_EXPIRES_IN || '7d'
+    ) as jwt.SignOptions['expiresIn'];
 
     const token = jwt.sign(
       {
@@ -92,7 +137,9 @@ export const login = async (req: Request, res: Response) => {
         rol: usuario.rol.nombre,
       },
       process.env.JWT_SECRET || 'secret',
-      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      {
+        expiresIn,
+      }
     );
 
     res.json({
@@ -108,14 +155,19 @@ export const login = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Error al iniciar sesión' });
+
+    res.status(500).json({
+      error: 'Error al iniciar sesión',
+    });
   }
 };
 
 export const me = async (req: AuthRequest, res: Response) => {
   try {
     const usuario = await prisma.usuario.findUnique({
-      where: { id_usuario: req.user!.id_usuario },
+      where: {
+        id_usuario: req.user!.id_usuario,
+      },
       select: {
         id_usuario: true,
         nombre: true,
@@ -123,12 +175,21 @@ export const me = async (req: AuthRequest, res: Response) => {
         telefono: true,
         estado: true,
         fecha_registro: true,
-        rol: { select: { nombre: true } },
+        rol: {
+          select: {
+            nombre: true,
+          },
+        },
         direcciones: true,
       },
     });
+
     res.json(usuario);
   } catch (error) {
-    res.status(500).json({ error: 'Error al obtener perfil' });
+    console.error(error);
+
+    res.status(500).json({
+      error: 'Error al obtener perfil',
+    });
   }
 };
