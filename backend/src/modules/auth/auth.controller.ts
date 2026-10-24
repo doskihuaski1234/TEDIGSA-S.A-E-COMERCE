@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 
 import prisma from '../../config/prisma';
 import { AuthRequest } from '../../common/middleware/auth.middleware';
+import { getJwtSecret } from '../../config/jwt';
 
 export const register = async (req: Request, res: Response) => {
   try {
@@ -72,7 +73,7 @@ export const register = async (req: Request, res: Response) => {
         id_rol: rolCliente.id_rol,
         rol: 'Cliente',
       },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       {
         expiresIn,
       }
@@ -136,7 +137,7 @@ export const login = async (req: Request, res: Response) => {
         id_rol: usuario.id_rol,
         rol: usuario.rol.nombre,
       },
-      process.env.JWT_SECRET || 'secret',
+      getJwtSecret(),
       {
         expiresIn,
       }

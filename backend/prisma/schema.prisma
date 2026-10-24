@@ -36,6 +36,8 @@ model Usuario {
   direcciones    Direccion[]
   carritos       CarritoCompras[]
   ordenes        Orden[]
+  chatConversaciones ChatConversacion[]
+  chatMensajes ChatMensaje[] @relation("ChatMensajesAutor")
   resenas        Resena[]
 
   @@map("usuario")
@@ -51,7 +53,6 @@ model Direccion {
   tipo          String  @db.VarChar(20)
   usuario       Usuario @relation(fields: [id_usuario], references: [id_usuario], onDelete: Cascade)
   ordenes       Orden[]
-
   @@map("direccion")
 }
 
@@ -148,7 +149,6 @@ model Cupon {
   fecha_fin    DateTime @db.Date
   estado       String   @default("Activo") @db.VarChar(20)
   ordenes      Orden[]
-
   @@map("cupon")
 }
 
@@ -170,6 +170,14 @@ model Orden {
   factura      FacturaFEL?
 
   @@map("orden")
+}
+
+model ConfiguracionSistema {
+  clave       String   @id @db.VarChar(80)
+  valor       String   @db.VarChar(255)
+  actualizado DateTime @default(now()) @updatedAt
+
+  @@map("configuracion_sistema")
 }
 
 model DetalleOrden {
@@ -224,4 +232,33 @@ model Resena {
   usuario      Usuario  @relation(fields: [id_usuario], references: [id_usuario])
 
   @@map("resena")
+}
+
+
+model ChatConversacion {
+  id_conversacion Int          @id @default(autoincrement())
+  id_usuario      Int
+  estado          String       @default("Abierta") @db.VarChar(20)
+  fecha_creacion  DateTime     @default(now())
+  fecha_actualizacion DateTime @updatedAt
+  usuario         Usuario      @relation(fields: [id_usuario], references: [id_usuario])
+  mensajes        ChatMensaje[]
+
+  @@index([id_usuario])
+  @@index([estado])
+  @@map("chat_conversacion")
+}
+
+model ChatMensaje {
+  id_mensaje      Int              @id @default(autoincrement())
+  id_conversacion Int
+  id_autor        Int
+  remitente       String           @db.VarChar(30)
+  mensaje         String           @db.Text
+  fecha_envio     DateTime         @default(now())
+  conversacion    ChatConversacion @relation(fields: [id_conversacion], references: [id_conversacion], onDelete: Cascade)
+  autor           Usuario          @relation("ChatMensajesAutor", fields: [id_autor], references: [id_usuario])
+
+  @@index([id_conversacion, fecha_envio])
+  @@map("chat_mensaje")
 }

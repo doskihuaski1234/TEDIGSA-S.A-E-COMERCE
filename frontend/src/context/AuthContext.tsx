@@ -9,6 +9,18 @@ interface User {
   rol: string;
 }
 
+const isUser = (value: unknown): value is User =>
+  typeof value === 'object' &&
+  value !== null &&
+  'id_usuario' in value &&
+  typeof value.id_usuario === 'number' &&
+  'nombre' in value &&
+  typeof value.nombre === 'string' &&
+  'email' in value &&
+  typeof value.email === 'string' &&
+  'rol' in value &&
+  typeof value.rol === 'string';
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
@@ -29,7 +41,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const stored = localStorage.getItem('tedigsa_user');
     if (token && stored) {
-      setUser(JSON.parse(stored));
+      try {
+        const parsed: unknown = JSON.parse(stored);
+        if (!isUser(parsed)) {
+          throw new Error('Datos de usuario almacenados no válidos');
+        }
+        setUser(parsed);
+      } catch {
+        localStorage.removeItem('tedigsa_token');
+        localStorage.removeItem('tedigsa_user');
+        setToken(null);
+        setUser(null);
+      }
+    } else {
+      setUser(null);
     }
     setLoading(false);
   }, [token]);

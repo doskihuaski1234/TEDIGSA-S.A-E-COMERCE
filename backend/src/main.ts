@@ -1,13 +1,18 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
 
+import { getJwtSecret } from './config/jwt';
 import authRoutes from './modules/auth/auth.routes';
 import catalogoRoutes from './modules/catalogo/catalogo.routes';
 import carritoRoutes from './modules/carrito/carrito.routes';
+import direccionesRoutes from './modules/direcciones/direcciones.routes';
 import ordenesRoutes from './modules/ordenes/ordenes.routes';
+import chatRoutes from './routes/chat.routes';
 
 dotenv.config();
+getJwtSecret();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -24,6 +29,9 @@ app.use(
 
 app.use(express.json());
 
+// Imágenes persistentes de productos almacenadas en backend/uploads.
+app.use('/uploads', express.static(path.resolve(__dirname, '../uploads')));
+
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -38,7 +46,9 @@ app.get('/api/health', (_req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/catalogo', catalogoRoutes);
 app.use('/api/carrito', carritoRoutes);
+app.use('/api/direcciones', direccionesRoutes);
 app.use('/api/ordenes', ordenesRoutes);
+app.use('/api/chat', chatRoutes);
 
 // 404
 app.use((_req, res) => {

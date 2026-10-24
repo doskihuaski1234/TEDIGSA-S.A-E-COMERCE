@@ -2,26 +2,101 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  :root {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: #263548;
+    background: #f8fafc;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-optical-sizing: auto;
+    scroll-behavior: smooth;
+    --tedigsa-primary: #17365a;
+    --tedigsa-accent: #C85B13;
+    --tedigsa-border: #dce2e8;
+    --tedigsa-surface: #ffffff;
+  }
+
+  body {
+    min-height: 100vh;
+    margin: 0;
+    background: #f8fafc;
+    line-height: 1.55;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--tedigsa-primary);
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  :focus-visible {
+    outline: 3px solid rgb(200 91 19 / 55%);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    color: #fff;
+    background: #17365a;
+  }
+}
+
 body {
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  margin: 0;
-  -webkit-font-smoothing: antialiased;
 }
 
 @layer components {
   .btn-primary {
-    @apply bg-tedigsa-orange hover:bg-orange-600 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-tedigsa-orange px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tedigsa-orange focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-secondary {
-    @apply bg-tedigsa-blue hover:bg-blue-900 text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-tedigsa-blue px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors duration-150 hover:bg-blue-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tedigsa-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn-outline {
-    @apply border-2 border-tedigsa-blue text-tedigsa-blue hover:bg-tedigsa-blue hover:text-white font-semibold px-5 py-2.5 rounded-lg transition-colors;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-tedigsa-blue transition-colors duration-150 hover:border-tedigsa-blue hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-tedigsa-blue focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
   }
   .input-field {
-    @apply w-full border border-gray-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-tedigsa-orange focus:border-transparent;
+    @apply w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-800 transition placeholder:text-slate-400 focus:border-tedigsa-orange focus:outline-none focus:ring-2 focus:ring-orange-100;
   }
   .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden;
+    @apply overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm;
+  }
+  .section-shell {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

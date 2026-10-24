@@ -1,0 +1,35 @@
+﻿PLAN DE IMÁGENES - TEDIGSA S.A.
+Generado: 2026-10-16 17:37:52
+
+OBJETIVO
+1. Usar fotografías reales correspondientes a cada producto.
+2. Guardar las imágenes en una ubicación estable para el despliegue.
+3. Mantener una imagen alternativa cuando una fotografía no esté disponible.
+4. Mostrar las imágenes correctamente en las tarjetas y en el detalle.
+5. Permitir que el administrador cambie las fotografías desde la plataforma.
+
+CATEGORÍAS VISUALES
+- Cámaras de seguridad y CCTV
+- Alarmas y sensores
+- Domótica y Smart Home
+- Control de acceso
+- Instalaciones eléctricas
+- Servicios de instalación
+
+REGLAS
+- No asignar fotografías de un producto distinto.
+- No modificar precios ni existencias para completar el catálogo.
+- Evitar imágenes temporales que desaparezcan al reiniciar el servidor.
+- Validar la carga de imágenes y restringir formatos permitidos.
+- Confirmar la ruta de almacenamiento antes de habilitar la carga.
+
+ARCHIVOS CLAVE PARA LA IMPLEMENTACIÓN
+- frontend/src/components/ProductCard.tsx
+- frontend/src/pages/Catalogo.tsx
+- frontend/src/pages/AdminProductos.tsx
+- backend: rutas y controlador de productos
+- backend: configuración de archivos estáticos
+
+PENDIENTE
+Integrar carga de archivos, previsualización, almacenamiento persistente
+y visualización en el catálogo y en el detalle del producto.

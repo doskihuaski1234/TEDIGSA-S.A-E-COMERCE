@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -9,6 +9,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -16,7 +17,12 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate('/');
+      const from = (location.state as { from?: unknown } | null)?.from;
+      const destination =
+        typeof from === 'string' && from.startsWith('/') && !from.startsWith('//')
+          ? from
+          : '/';
+      navigate(destination, { replace: true });
     } catch (err: any) {
       setError(err.response?.data?.error || 'Error al iniciar sesión');
     } finally {
@@ -41,24 +47,28 @@ export default function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico</label>
+            <label htmlFor="login-email" className="mb-1 block text-sm font-medium text-gray-700">Correo electrónico</label>
             <input
+              id="login-email"
               type="email"
               className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="tu@correo.com"
+              autoComplete="email"
               required
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+            <label htmlFor="login-password" className="mb-1 block text-sm font-medium text-gray-700">Contraseña</label>
             <input
+              id="login-password"
               type="password"
               className="input-field"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
+              autoComplete="current-password"
               required
             />
           </div>
@@ -74,11 +84,6 @@ export default function Login() {
           </Link>
         </p>
 
-        <div className="mt-6 p-3 bg-gray-50 rounded-lg text-xs text-tedigsa-gray">
-          <p className="font-medium mb-1">Cuentas de prueba:</p>
-          <p>Admin: admin@tedigsa.net / Admin123!</p>
-          <p>Cliente: cliente@example.com / Cliente123!</p>
-        </div>
       </div>
     </div>
   );

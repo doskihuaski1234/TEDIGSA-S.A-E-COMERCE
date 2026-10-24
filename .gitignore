@@ -7,3 +7,30 @@ dist/
 *.log
 coverage/
 .vscode/
+
+# Respaldos locales y archivos temporales
+backups/
+respaldos/
+respaldo*/
+**/*.bak
+**/*.bak_*
+**/*.backup*
+*.zip
+
+# Archivos de carga generados durante la ejecucion
+backend/uploads/
+
+# Informes de auditoria y archivos locales de revision
+AUDITORIA_*.txt
+INFORME_*.txt
+REVISION_*.txt
+CODIGO_PARA_IMPLEMENTAR.txt
+*.respaldo_*
+*.bak
+*.bak_*
+*.backup*
+respaldo*
+respaldos/
+backups/
+*.zip
+backend/uploads/

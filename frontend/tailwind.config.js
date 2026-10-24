@@ -5,10 +5,10 @@ export default {
     extend: {
       colors: {
         tedigsa: {
-          blue: '#16345C',
-          orange: '#F26B1D',
-          gray: '#7F8C9A',
-          light: '#F5F7FA',
+          blue: '#17365A',
+          orange: '#C85B13',
+          gray: '#64748B',
+          light: '#F5F7F9',
         },
       },
       fontFamily: {

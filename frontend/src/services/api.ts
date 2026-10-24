@@ -2,7 +2,6 @@ import axios from 'axios';
 
 const api = axios.create({
   baseURL: '/api',
-  headers: { 'Content-Type': 'application/json' },
 });
 
 api.interceptors.request.use((config) => {
@@ -16,7 +15,11 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const endpoint = error.config?.url;
+    const isCredentialRequest =
+      endpoint === '/auth/login' || endpoint === '/auth/register';
+
+    if (error.response?.status === 401 && !isCredentialRequest) {
       localStorage.removeItem('tedigsa_token');
       localStorage.removeItem('tedigsa_user');
       if (window.location.pathname !== '/login') {
@@ -65,4 +68,31 @@ export const ordenesApi = {
   all: (params?: Record<string, any>) => api.get('/ordenes', { params }),
   updateEstado: (id: number, estado: string) =>
     api.patch(`/ordenes/${id}/estado`, { estado }),
+  getConfirmacionAutomatica: () =>
+    api.get('/ordenes/configuracion/confirmacion'),
+  setConfirmacionAutomatica: (automatico: boolean) =>
+    api.put('/ordenes/configuracion/confirmacion', { automatico }),
+  editAdmin: (
+    id: number,
+    data: {
+      direccion: {
+        calle: string;
+        ciudad: string;
+        departamento: string;
+        codigo_postal?: string;
+      };
+      items: Array<{ id_producto: number; cantidad: number }>;
+    }
+  ) => api.patch(`/ordenes/${id}/administracion`, data),
+  cancelAdmin: (id: number) => api.post(`/ordenes/${id}/cancelar`),
+};
+
+// Direcciones de entrega
+export const direccionesApi = {
+  crear: (data: {
+    calle: string;
+    ciudad: string;
+    departamento: string;
+    codigo_postal?: string;
+  }) => api.post('/direcciones', data),
 };
